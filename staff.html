@@ -123,10 +123,15 @@
 
     <div id="tab-acts" class="hide">
       <div class="card">
-        <h2 data-t="activities">چالاکییەکان</h2>
-        <p class="sub" id="actBudget"></p>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+          <h2 data-t="activities">چالاکییەکان</h2>
+          <span class="muted" id="actCount"></span>
+        </div>
+        <div id="actBudget"></div>
+        <div class="msg" id="actMsg"></div>
         <div id="actList"></div>
         <button class="btn" id="actAdd" data-t="addActivity">زیادکردنی چالاکی</button>
+        <p class="muted" style="margin-top:12px" data-t="releaseHint">دوای بڵاوکردنەوە، خوێندکار دەتوانێت نمرەکەی ببینێت کاتێک داوای ڕاپۆرت دەکات.</p>
       </div>
     </div>
 
@@ -254,8 +259,9 @@ function SESSION_TOKEN(){ return S.token; }
 
 function boot(){
   initLang(function(){
-    if(S.sheet){ renderMarks(); renderActs(); renderStats(); }
+    if(S.sheet){ renderSubjectHeader(); renderMarks(); renderActs(); renderStats(); }
     if(S.head) renderHead();
+    if(S.subjects.length) renderSubjList();
     if(S.user) $('stafRole').textContent = S.user.email+' · '+roleLabel(S.user.role);
   });
   wireSheet();
@@ -313,12 +319,23 @@ function openStaff(){
 }
 function renderSubjList(){
   $('subjList').innerHTML = S.subjects.map(function(s){
-    return '<button class="tile" data-code="'+esc(s.code)+'">'+
-      '<div class="ic">📘</div><div class="tx"><div class="tt">'+esc(subjName(s))+'</div>'+
-      '<div class="ts">'+esc(s.code)+' · '+t('stage')+' '+esc(s.stage)+' · '+s.students+' '+t('students')+
-      ' · '+s.published+'/'+s.activities+' '+t('published')+'</div></div><div class="arrow">›</div></button>';
+    var pct = s.activities ? Math.round(s.published/s.activities*100) : 0;
+    return '<button class="subj" data-code="'+esc(s.code)+'">'+
+      '<div class="head">'+
+        '<div class="code">'+esc(s.code)+'</div>'+
+        '<div class="ttl"><b>'+esc(subjName(s))+'</b>'+
+          '<span>'+t('stage')+' '+esc(s.stage)+' · '+t('teacherTotal')+' '+s.teacher_total+'</span></div>'+
+        '<div class="arrow">›</div>'+
+      '</div>'+
+      '<div class="meta">'+
+        '<span class="pill">👥 <b>'+s.students+'</b> '+t('students')+'</span>'+
+        '<span class="pill">📝 <b>'+s.activities+'</b> '+t('activities')+'</span>'+
+        '<span class="pill">📨 <b>'+s.published+'</b> '+t('released')+'</span>'+
+      '</div>'+
+      '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
+    '</button>';
   }).join('') || '<p class="muted center">'+t('noData')+'</p>';
-  qa('#subjList .tile').forEach(function(b){
+  qa('#subjList .subj').forEach(function(b){
     b.onclick=function(){ openSubject(b.getAttribute('data-code')); };
   });
 }
@@ -330,12 +347,16 @@ function openSubject(code){
   api('teacher.marksheet',{subject_code:code}).then(function(d){
     busy(false); S.sheet=d; S.sortDesc=false;
     show('v-subject');
-    $('sjName').textContent = subjName(d.subject);
-    $('sjMeta').textContent = d.subject.code+' · '+t('stage')+' '+d.subject.stage+' · '+
-      t('teacherTotal')+' '+d.subject.teacher_total+' · '+t('passMark')+' '+d.subject.pass_mark;
+    renderSubjectHeader();
     switchTab('marks');
     renderMarks(); renderActs(); renderStats();
   }).catch(function(e){ busy(false); alert(e.message); });
+}
+function renderSubjectHeader(){
+  var d=S.sheet; if(!d) return;
+  $('sjName').textContent = subjName(d.subject);
+  $('sjMeta').textContent = d.subject.code+' · '+t('stage')+' '+d.subject.stage+' · '+
+    t('teacherTotal')+' '+d.subject.teacher_total+' · '+t('passMark')+' '+d.subject.pass_mark;
 }
 qa('.tabs [data-tab]').forEach(function(b){
   b.onclick=function(){ switchTab(b.getAttribute('data-tab')); };
@@ -422,20 +443,60 @@ $('mkSend').onclick=function(){
 function renderActs(){
   var d=S.sheet; if(!d) return;
   var sum=d.activities.reduce(function(a,x){return a+n(x.max_mark);},0);
-  var col = sum===n(d.subject.teacher_total) ? 'var(--ok)' : 'var(--warn)';
-  $('actBudget').innerHTML = t('total')+': <b style="color:'+col+'">'+sum+'</b> / '+d.subject.teacher_total;
+  var budget=n(d.subject.teacher_total)||1;
+  var state = sum===budget ? 'exact' : (sum>budget ? 'over' : '');
+  $('actBudget').innerHTML =
+    '<div class="budget '+state+'">'+
+      '<div class="track"><div class="fill" style="width:'+Math.min(100, sum/budget*100)+'%"></div></div>'+
+      '<div class="legend"><span>'+t('allocated')+' <b>'+sum+'</b></span>'+
+      '<span>'+t('teacherTotal')+' '+budget+'</span></div></div>';
+
+  var released = d.activities.filter(function(a){ return a.published; }).length;
   $('actList').innerHTML = d.activities.map(function(a){
-    return '<div class="item"><div class="tx"><b>'+esc(actName(a))+'</b>'+
-      '<span>'+t('maxMark')+' '+a.max_mark+' · '+esc(a.date||'')+' '+
-      '<span class="badge '+(a.published?'pub':'draft')+'">'+(a.published?t('published'):t('draft'))+'</span></span></div>'+
-      '<button class="btn sm soft" data-ed="'+esc(a.activity_id)+'">'+t('edit')+'</button></div>';
+    return '<div class="act'+(a.published?' live':'')+'" data-id="'+esc(a.activity_id)+'">'+
+      '<div class="mark">'+a.max_mark+'</div>'+
+      /* With the release button beside it the state is already obvious,
+         so only the head's read-only view spells it out. */
+      '<div class="tx"><b>'+esc(actName(a))+'</b><span>'+
+        (a.date?esc(a.date):'')+
+        (d.readonly ? (a.date?' · ':'')+(a.published?t('visibleToStudents'):t('hiddenFromStudents')) : '')+
+      '</span></div>'+
+      '<div class="ops">'+
+        (d.readonly?'':
+          '<button class="release'+(a.published?' on':'')+'" data-rel="'+esc(a.activity_id)+'">'+
+            (a.published?'✓ '+t('released'):t('release'))+'</button>'+
+          '<button class="iconbtn" data-ed="'+esc(a.activity_id)+'" title="'+t('edit')+'">✎</button>')+
+      '</div></div>';
   }).join('') || '<p class="muted center">'+t('noData')+'</p>';
+
+  $('actCount').textContent = released+' / '+d.activities.length+' '+t('released');
+
   qa('#actList [data-ed]').forEach(function(b){
     b.onclick=function(){
       actForm(d.activities.filter(function(x){return x.activity_id===b.getAttribute('data-ed');})[0]);
     };
   });
+  qa('#actList [data-rel]').forEach(function(b){
+    b.onclick=function(){ toggleRelease(b.getAttribute('data-rel')); };
+  });
   $('actAdd').classList.toggle('hide', !!d.readonly);
+}
+
+/** One tap: make an activity visible to students, or pull it back. */
+function toggleRelease(id){
+  var a = S.sheet.activities.filter(function(x){ return x.activity_id===id; })[0];
+  if(!a) return;
+  var next = !a.published;
+  busy(true, t('saving'));
+  api('teacher.setPublished',{subject_code:S.sheet.subject.code, activity_id:id, published:next})
+    .then(function(r){
+      busy(false);
+      a.published = r.published;
+      renderActs(); renderMarks();
+      msg('actMsg', (r.published? t('nowVisible') : t('nowHidden'))+
+        (r.notified? ' · '+r.notified+' ✉' : ''), 'ok');
+    })
+    .catch(function(e){ busy(false); msg('actMsg', e.message, 'err'); });
 }
 $('actAdd').onclick=function(){ actForm(null); };
 function actForm(a){
