@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="robots" content="noindex">
+<title>Bio-score</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bio-score">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="logo">BS</div>
+    <div>
+      <div class="brand-name" id="appName">Bio-score</div>
+      <div class="brand-sub" id="appSub">بەشی بایۆتەکنەلۆجی · زانکۆی ڕاپەڕین</div>
+    </div>
+    <div class="top-actions">
+      <button class="chip" id="langBtn">کوردی</button>
+    </div>
+  </div>
+  <div style="max-width:720px;margin:0 auto">
+    <span class="tagline" data-t="studentPortal">پۆرتاڵی خوێندکاران</span>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- setup (only when the API url has not been set) -->
+  <section id="v-setup" class="hide">
+    <div class="card">
+      <h2>Connect the backend</h2>
+      <p class="sub">Paste the Google Apps Script web app URL (ending in /exec).
+        Normally this is set once in <b>config.js</b>.</p>
+      <input id="apiInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <button class="btn" id="apiSave">Save</button>
+    </div>
+  </section>
+
+  <!-- email -->
+  <section id="v-email" class="hide">
+    <div class="card">
+      <h2 data-t="studentTitle">وەرگرتنی نمرەکان</h2>
+      <p class="sub" data-t="studentSub">ئیمەیڵەکەت بنووسە. ڕاپۆرتەکە تەنها بۆ هەمان ئیمەیڵ دەنێردرێت، کەسی تر نایبینێت.</p>
+      <label class="f" data-t="email">ئیمەیڵ</label>
+      <input id="stEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
+      <button class="btn" id="stFind"><span data-t="continue">بەردەوامبە</span></button>
+      <div class="msg err" id="stErr"></div>
+    </div>
+    <p class="foot" data-t="privacyNote">نمرەکان لە ڕووی پەردەدا نیشان نادرێن — تەنها بۆ ئیمەیڵەکەت دەنێردرێن.</p>
+  </section>
+
+  <!-- subjects -->
+  <section id="v-pick" class="hide">
+    <div class="card">
+      <h2 id="stName"></h2>
+      <p class="sub" id="stMeta"></p>
+      <hr class="sep">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <b style="font-size:14px" data-t="chooseSubjects">وانەکان هەڵبژێرە</b>
+        <button class="btn sm ghost" id="stAll" data-t="selectAll">هەموو</button>
+      </div>
+      <div id="stSubs"></div>
+      <button class="btn" id="stSend"><span data-t="sendReport">ناردنی ڕاپۆرت بۆ ئیمەیڵەکەم</span></button>
+      <div class="msg ok" id="stOk"></div>
+      <div class="msg err" id="stErr2"></div>
+      <button class="btn ghost" id="stBack" data-t="anotherEmail">ئیمەیڵێکی تر</button>
+    </div>
+  </section>
+
+</div>
+
+<div class="loading" id="loading"><div class="box2" id="loadingTx">...</div></div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+/* =========================================================
+ * Bio-score — STUDENT PORTAL
+ * This page can only read a student's own subjects and ask the
+ * server to email that student their report. It holds no
+ * teacher or admin code at all.
+ * ======================================================= */
+
+function SESSION_TOKEN(){ return null; }   // students never have a session
+
+var ST = { student:null, subjects:[] };
+
+function boot(){
+  initLang(function(){ if(ST.student) renderSubs(); });
+  wireSheet();
+  if(needsSetup()){ wireSetup(); show('v-setup'); return; }
+  loadBranding();
+  show('v-email');
+}
+
+$('stFind').onclick = function(){
+  var em = $('stEmail').value.trim();
+  if(!em) return;
+  hideMsg('stErr'); busy(true);
+  api('student.lookup',{email:em}).then(function(d){
+    busy(false);
+    ST.student = d.student; ST.subjects = d.subjects;
+    $('stName').textContent = d.student.name;
+    $('stMeta').textContent = t('stage')+' '+d.student.stage+' · '+
+                              t('group')+' '+(d.student.group||'-')+' · '+d.student.email;
+    renderSubs();
+    show('v-pick');
+  }).catch(function(e){ busy(false); msg('stErr', e.message, 'err'); });
+};
+
+function renderSubs(){
+  $('stSubs').innerHTML = ST.subjects.map(function(s){
+    return '<div class="pick on" data-code="'+esc(s.code)+'">'+
+      '<div class="box">✓</div><div class="nm"><b>'+esc(subjName(s))+'</b>'+
+      '<span>'+esc(s.code)+' · '+s.activities+' '+t('activities')+' · '+
+      t('teacherTotal')+' '+s.teacher_total+'</span></div></div>';
+  }).join('') || '<p class="muted center">'+t('noData')+'</p>';
+  qa('#stSubs .pick').forEach(function(p){ p.onclick=function(){ p.classList.toggle('on'); }; });
+}
+
+$('stAll').onclick=function(){
+  var all = qa('#stSubs .pick');
+  var allOn = all.length && all.filter(function(p){return p.classList.contains('on');}).length===all.length;
+  all.forEach(function(p){ p.classList.toggle('on', !allOn); });
+};
+
+$('stSend').onclick=function(){
+  var codes = qa('#stSubs .pick.on').map(function(p){ return p.getAttribute('data-code'); });
+  if(!codes.length){ msg('stErr2', t('chooseSubjects'), 'err'); return; }
+  hideMsg('stErr2'); busy(true, t('sending'));
+  api('student.send',{email:ST.student.email, subjects:codes}).then(function(d){
+    busy(false); msg('stOk', d.message, 'ok');
+  }).catch(function(e){ busy(false); msg('stErr2', e.message, 'err'); });
+};
+
+$('stBack').onclick=function(){
+  ST.student=null; $('stEmail').value=''; hideMsg('stOk'); hideMsg('stErr2');
+  show('v-email');
+};
+
+registerSW();
+boot();
+</script>
+</body>
+</html>

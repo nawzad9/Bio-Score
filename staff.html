@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#115e59">
+<meta name="robots" content="noindex,nofollow">
+<title>Bio-score Staff</title>
+<link rel="manifest" href="manifest-staff.json">
+<link rel="apple-touch-icon" href="icon-staff-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bio-score Staff">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* staff portal wears a darker shade so you always know which link you are on */
+  :root{ --brand:#115e59; --brand-dark:#134e4a; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="logo">BS</div>
+    <div>
+      <div class="brand-name" id="appName">Bio-score</div>
+      <div class="brand-sub" id="appSub">بەشی بایۆتەکنەلۆجی · زانکۆی ڕاپەڕین</div>
+    </div>
+    <div class="top-actions">
+      <button class="chip" id="langBtn">کوردی</button>
+      <button class="chip hide" id="outBtn">⏻</button>
+    </div>
+  </div>
+  <div style="max-width:720px;margin:0 auto">
+    <span class="tagline" data-t="staffPortal">پۆرتاڵی مامۆستایان</span>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- setup -->
+  <section id="v-setup" class="hide">
+    <div class="card">
+      <h2>Connect the backend</h2>
+      <p class="sub">Paste the Google Apps Script web app URL (ending in /exec).
+        Normally this is set once in <b>config.js</b>.</p>
+      <input id="apiInput" placeholder="https://script.google.com/macros/s/.../exec">
+      <button class="btn" id="apiSave">Save</button>
+    </div>
+  </section>
+
+  <!-- login -->
+  <section id="v-login" class="hide">
+    <div class="card">
+      <h2 data-t="loginTitle">چوونەژوورەوەی مامۆستا</h2>
+      <p class="sub" data-t="loginSub">ئیمەیڵ و کۆدی تایبەتت بنووسە. تا دەرنەچیت لە ئامێرەکەت دەمێنیتەوە.</p>
+      <label class="f" data-t="email">ئیمەیڵ</label>
+      <input id="lgEmail" type="email" inputmode="email" autocomplete="email">
+      <label class="f" data-t="code">کۆد</label>
+      <input id="lgCode" autocapitalize="characters" autocomplete="one-time-code" placeholder="XXXXXXXX">
+      <button class="btn" id="lgGo"><span data-t="signIn">چوونەژوورەوە</span></button>
+      <button class="btn ghost" id="lgCode2" data-t="sendCode">کۆدێکی نوێم بۆ بنێرە</button>
+      <div class="msg err" id="lgErr"></div>
+      <div class="msg ok" id="lgOk"></div>
+    </div>
+  </section>
+
+  <!-- staff home -->
+  <section id="v-staff" class="hide">
+    <div class="card">
+      <h2 id="stafName"></h2>
+      <p class="sub" id="stafRole"></p>
+      <div class="stats" id="stafStats"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h2 data-t="mySubjects">وانەکان</h2>
+        <button class="btn sm soft" id="refreshBtn">↻</button>
+      </div>
+      <div id="subjList"></div>
+    </div>
+    <div class="card hide" id="adminTools">
+      <h2 data-t="management">بەڕێوەبردن</h2>
+      <button class="tile" id="goHead"><div class="ic">📊</div>
+        <div class="tx"><div class="tt" data-t="deptReport">ڕاپۆرتی بەش</div>
+        <div class="ts" data-t="deptReportSub">هەموو وانەکان، ئامار و داگرتن</div></div><div class="arrow">›</div></button>
+      <button class="tile hide" id="goAdmin"><div class="ic">⚙️</div>
+        <div class="tx"><div class="tt" data-t="adminPanel">پانێڵی بەڕێوەبەر</div>
+        <div class="ts" data-t="adminPanelSub">خوێندکار، وانە، هەژمار و ڕێکخستن</div></div><div class="arrow">›</div></button>
+      <button class="tile" id="goLogs"><div class="ic">🧾</div>
+        <div class="tx"><div class="tt" data-t="logs">تۆمارەکان</div>
+        <div class="ts" data-t="logsSub">گۆڕانکاری نمرە و ئیمەیڵە نێردراوەکان</div></div><div class="arrow">›</div></button>
+    </div>
+  </section>
+
+  <!-- subject -->
+  <section id="v-subject" class="hide">
+    <div class="card">
+      <h2 id="sjName"></h2>
+      <p class="sub" id="sjMeta"></p>
+      <div class="tabs">
+        <button data-tab="marks" class="on" data-t="marks">نمرەکان</button>
+        <button data-tab="acts" data-t="activities">چالاکییەکان</button>
+        <button data-tab="stats" data-t="statistics">ئامار</button>
+      </div>
+    </div>
+
+    <div id="tab-marks">
+      <div class="card">
+        <div class="row">
+          <button class="btn sm soft" id="mkSave" data-t="save">پاشەکەوت</button>
+          <button class="btn sm soft" id="mkExcel">Excel</button>
+          <button class="btn sm soft" id="mkWord">Word</button>
+          <button class="btn sm soft" id="mkSort" data-t="sortHigh">ڕیزکردن</button>
+        </div>
+        <div class="scroll" id="mkWrap"></div>
+        <button class="btn" id="mkSend" data-t="sendToStudents">ناردنی نمرەکان بۆ خوێندکاران</button>
+        <div class="msg ok" id="mkOk"></div>
+        <div class="msg err" id="mkErr"></div>
+      </div>
+    </div>
+
+    <div id="tab-acts" class="hide">
+      <div class="card">
+        <h2 data-t="activities">چالاکییەکان</h2>
+        <p class="sub" id="actBudget"></p>
+        <div id="actList"></div>
+        <button class="btn" id="actAdd" data-t="addActivity">زیادکردنی چالاکی</button>
+      </div>
+    </div>
+
+    <div id="tab-stats" class="hide">
+      <div class="card">
+        <h2 data-t="statistics">ئامار</h2>
+        <div class="stats" id="sjStats"></div>
+        <div id="sjDist" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <button class="btn ghost back" data-t="back">گەڕانەوە</button>
+  </section>
+
+  <!-- head -->
+  <section id="v-head" class="hide">
+    <div class="card">
+      <h2 data-t="deptReport">ڕاپۆرتی بەش</h2>
+      <div class="stats" id="hdStats"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn sm soft" id="hdExcel">Excel</button>
+        <button class="btn sm soft" id="hdWord">Word</button>
+        <button class="btn sm soft" id="hdFull" data-t="fullExport">هەموو نمرەکان</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-t="missing">وانەی تەواو نەکراو</h2>
+      <p class="sub" data-t="missingSub">ئەو وانانەی هێشتا نمرەیان تۆمار نەکراوە یان بڵاو نەکراوەتەوە.</p>
+      <div id="hdMissing"></div>
+    </div>
+    <div class="card">
+      <h2 data-t="allSubjects">هەموو وانەکان</h2>
+      <div class="scroll" id="hdTable"></div>
+    </div>
+    <button class="btn ghost back" data-t="back">گەڕانەوە</button>
+  </section>
+
+  <!-- admin -->
+  <section id="v-admin" class="hide">
+    <div class="card">
+      <div class="tabs">
+        <button data-atab="students" class="on" data-t="students">خوێندکاران</button>
+        <button data-atab="subjects" data-t="subjects">وانەکان</button>
+        <button data-atab="teachers" data-t="accounts">هەژمارەکان</button>
+        <button data-atab="config" data-t="settings">ڕێکخستن</button>
+      </div>
+    </div>
+
+    <div id="atab-students">
+      <div class="card">
+        <h2 data-t="importStudents">هاوردەکردنی خوێندکاران</h2>
+        <p class="sub" data-t="importSub">هەر دێڕێک: کۆد, ناو, ئیمەیڵ, قۆناغ, گرووپ</p>
+        <textarea id="impBox" placeholder="S0001, Ahmed Ali, ahmed@example.com, 1, A"></textarea>
+        <button class="btn" id="impGo" data-t="import">هاوردە</button>
+        <div class="msg ok" id="impOk"></div>
+        <div class="msg err" id="impErr"></div>
+      </div>
+      <div class="card">
+        <h2><span data-t="students">خوێندکاران</span> (<span id="stuCount">0</span>)</h2>
+        <input id="stuSearch" placeholder="🔍" style="margin-bottom:6px">
+        <div class="scroll" id="stuTable"></div>
+      </div>
+    </div>
+
+    <div id="atab-subjects" class="hide">
+      <div class="card">
+        <h2 data-t="subjects">وانەکان</h2>
+        <div id="subAdmList"></div>
+        <button class="btn" id="subAdd" data-t="addSubject">زیادکردنی وانە</button>
+      </div>
+    </div>
+
+    <div id="atab-teachers" class="hide">
+      <div class="card">
+        <h2 data-t="accounts">هەژمارەکان</h2>
+        <p class="sub" data-t="accountsSub">مامۆستا، سەرۆکی بەش و بەڕێوەبەر. کۆد بە ئیمەیڵ دەنێردرێت.</p>
+        <div id="teaList"></div>
+        <button class="btn" id="teaAdd" data-t="addAccount">زیادکردنی هەژمار</button>
+      </div>
+    </div>
+
+    <div id="atab-config" class="hide">
+      <div class="card">
+        <h2 data-t="settings">ڕێکخستن</h2>
+        <div id="cfgList"></div>
+        <button class="btn" id="cfgSave" data-t="save">پاشەکەوت</button>
+        <div class="msg ok" id="cfgOk"></div>
+      </div>
+    </div>
+
+    <button class="btn ghost back" data-t="back">گەڕانەوە</button>
+  </section>
+
+  <!-- logs -->
+  <section id="v-logs" class="hide">
+    <div class="card">
+      <h2 data-t="logs">تۆمارەکان</h2>
+      <div class="tabs">
+        <button data-ltab="audit" class="on" data-t="changes">گۆڕانکاری</button>
+        <button data-ltab="emails" data-t="emails">ئیمەیڵەکان</button>
+      </div>
+      <div class="scroll" id="logTable"></div>
+    </div>
+    <button class="btn ghost back" data-t="back">گەڕانەوە</button>
+  </section>
+
+</div>
+
+<div class="sheet" id="sheet"><div class="sheet-in"><h3 id="shTitle"></h3><div id="shBody"></div></div></div>
+<div class="loading" id="loading"><div class="box2" id="loadingTx">...</div></div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+/* =========================================================
+ * Bio-score — STAFF PORTAL (teacher / head of department / admin)
+ * Students never open this page; it is a separate link.
+ * The server checks the role on every call regardless.
+ * ======================================================= */
+
+var S = { token: localStorage.getItem('bs_token') || '', user:null,
+          subjects:[], sheet:null, head:null, admin:null, logs:null, sortDesc:false };
+
+function SESSION_TOKEN(){ return S.token; }
+
+function boot(){
+  initLang(function(){
+    if(S.sheet){ renderMarks(); renderActs(); renderStats(); }
+    if(S.head) renderHead();
+    if(S.user) $('stafRole').textContent = S.user.email+' · '+roleLabel(S.user.role);
+  });
+  wireSheet();
+  if(needsSetup()){ wireSetup(); show('v-setup'); return; }
+  loadBranding({darken:0.28});
+  if(S.token){
+    api('auth.me').then(function(){ openStaff(); })
+      .catch(function(){ S.token=''; localStorage.removeItem('bs_token'); show('v-login'); });
+  } else show('v-login');
+}
+
+qa('.back').forEach(function(b){ b.onclick=function(){ openStaff(); }; });
+
+/* ---------------- auth ---------------- */
+$('lgGo').onclick=function(){
+  var em=$('lgEmail').value.trim(), cd=$('lgCode').value.trim().toUpperCase();
+  if(!em||!cd) return;
+  hideMsg('lgErr'); busy(true);
+  api('auth.login',{email:em, code:cd}).then(function(d){
+    busy(false); S.token=d.token; S.user=d.user;
+    localStorage.setItem('bs_token', d.token);
+    $('lgCode').value=''; openStaff();
+  }).catch(function(e){ busy(false); msg('lgErr', e.message,'err'); });
+};
+$('lgCode2').onclick=function(){
+  var em=$('lgEmail').value.trim(); if(!em) return;
+  hideMsg('lgErr'); busy(true,t('sending'));
+  api('auth.requestCode',{email:em}).then(function(d){
+    busy(false); msg('lgOk', d.message,'ok');
+  }).catch(function(e){ busy(false); msg('lgErr', e.message,'err'); });
+};
+$('outBtn').onclick=function(){
+  if(!confirm(t('confirm'))) return;
+  api('auth.logout').catch(function(){});
+  S.token=''; S.user=null; localStorage.removeItem('bs_token');
+  $('outBtn').classList.add('hide'); show('v-login');
+};
+
+/* ---------------- staff home ---------------- */
+function openStaff(){
+  show('v-staff'); $('outBtn').classList.remove('hide');
+  busy(true);
+  api('teacher.subjects').then(function(d){
+    busy(false); S.user=d.user; S.subjects=d.subjects;
+    $('stafName').textContent = d.user.name;
+    $('stafRole').textContent = d.user.email+' · '+roleLabel(d.user.role);
+    $('adminTools').classList.toggle('hide', d.user.role==='teacher');
+    $('goAdmin').classList.toggle('hide', d.user.role!=='admin');
+    var pub=d.subjects.reduce(function(a,s){return a+s.published;},0),
+        stu=d.subjects.reduce(function(a,s){return a+s.students;},0);
+    $('stafStats').innerHTML = stat(d.subjects.length, t('subjects'))+
+      stat(pub, t('published'))+stat(stu, t('students'));
+    renderSubjList();
+  }).catch(function(e){ busy(false); alert(e.message); });
+}
+function renderSubjList(){
+  $('subjList').innerHTML = S.subjects.map(function(s){
+    return '<button class="tile" data-code="'+esc(s.code)+'">'+
+      '<div class="ic">📘</div><div class="tx"><div class="tt">'+esc(subjName(s))+'</div>'+
+      '<div class="ts">'+esc(s.code)+' · '+t('stage')+' '+esc(s.stage)+' · '+s.students+' '+t('students')+
+      ' · '+s.published+'/'+s.activities+' '+t('published')+'</div></div><div class="arrow">›</div></button>';
+  }).join('') || '<p class="muted center">'+t('noData')+'</p>';
+  qa('#subjList .tile').forEach(function(b){
+    b.onclick=function(){ openSubject(b.getAttribute('data-code')); };
+  });
+}
+$('refreshBtn').onclick=openStaff;
+
+/* ---------------- subject ---------------- */
+function openSubject(code){
+  busy(true);
+  api('teacher.marksheet',{subject_code:code}).then(function(d){
+    busy(false); S.sheet=d; S.sortDesc=false;
+    show('v-subject');
+    $('sjName').textContent = subjName(d.subject);
+    $('sjMeta').textContent = d.subject.code+' · '+t('stage')+' '+d.subject.stage+' · '+
+      t('teacherTotal')+' '+d.subject.teacher_total+' · '+t('passMark')+' '+d.subject.pass_mark;
+    switchTab('marks');
+    renderMarks(); renderActs(); renderStats();
+  }).catch(function(e){ busy(false); alert(e.message); });
+}
+qa('.tabs [data-tab]').forEach(function(b){
+  b.onclick=function(){ switchTab(b.getAttribute('data-tab')); };
+});
+function switchTab(name){
+  qa('.tabs [data-tab]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===name); });
+  ['marks','acts','stats'].forEach(function(x){ $('tab-'+x).classList.toggle('hide', x!==name); });
+}
+function studentTotal(email){
+  var tot=0;
+  S.sheet.activities.forEach(function(a){
+    var v=S.sheet.grades[email+'|'+a.activity_id];
+    if(v!==''&&v!==undefined&&v!==null) tot+=n(v);
+  });
+  return tot;
+}
+function renderMarks(){
+  var d=S.sheet; if(!d) return;
+  var list = d.students.slice();
+  if(S.sortDesc) list.sort(function(a,b){ return studentTotal(b.email)-studentTotal(a.email); });
+  var head='<tr><th class="name">#  '+t('name')+'</th>'+
+    d.activities.map(function(a){
+      return '<th>'+esc(actName(a))+'<br><span style="font-weight:400">/'+a.max_mark+
+      (a.published?'':' •')+'</span></th>'; }).join('')+
+    '<th>'+t('total')+'</th><th>'+t('pass')+'</th></tr>';
+  var rows = list.map(function(st,i){
+    var tot=studentTotal(st.email), ok = tot >= n(d.subject.pass_mark);
+    return '<tr><td class="name" title="'+esc(st.email)+'">'+(i+1)+'. '+esc(st.name)+'</td>'+
+      d.activities.map(function(a){
+        var v=d.grades[st.email+'|'+a.activity_id];
+        return '<td><input class="mk" type="number" inputmode="decimal" min="0" max="'+a.max_mark+
+          '" data-em="'+esc(st.email)+'" data-ac="'+esc(a.activity_id)+'" value="'+
+          (v===undefined||v===null?'':esc(v))+'"'+(d.readonly?' disabled':'')+'></td>';
+      }).join('')+
+      '<td class="total">'+tot+'</td>'+
+      '<td><span class="badge '+(ok?'pass':'fail')+'">'+(ok?t('pass'):t('fail'))+'</span></td></tr>';
+  }).join('');
+  $('mkWrap').innerHTML = d.activities.length
+    ? '<table>'+head+rows+'</table>'
+    : '<p class="muted center" style="padding:18px">'+t('addActivity')+'</p>';
+  qa('#mkWrap input.mk').forEach(function(inp){
+    inp.oninput=function(){
+      var max=n(inp.getAttribute('max'));
+      if(inp.value!=='' && n(inp.value)>max) inp.value=max;
+      S.sheet.grades[inp.getAttribute('data-em')+'|'+inp.getAttribute('data-ac')] =
+        inp.value===''?'':n(inp.value);
+      refreshTotals();
+    };
+  });
+  $('mkSave').classList.toggle('hide', !!d.readonly);
+  $('mkSend').classList.toggle('hide', !!d.readonly);
+}
+function refreshTotals(){
+  var d=S.sheet, seen={};
+  qa('#mkWrap input.mk').forEach(function(inp){
+    var em=inp.getAttribute('data-em'); if(seen[em])return; seen[em]=1;
+    var tr=inp.closest('tr'); if(!tr)return;
+    var tot=studentTotal(em), tds=tr.querySelectorAll('td');
+    tds[tds.length-2].textContent=tot;
+    var ok=tot>=n(d.subject.pass_mark);
+    tds[tds.length-1].innerHTML='<span class="badge '+(ok?'pass':'fail')+'">'+(ok?t('pass'):t('fail'))+'</span>';
+  });
+}
+$('mkSort').onclick=function(){ S.sortDesc=!S.sortDesc; renderMarks(); };
+$('mkSave').onclick=function(){
+  var marks=[];
+  qa('#mkWrap input.mk').forEach(function(i){
+    marks.push({email:i.getAttribute('data-em'), activity_id:i.getAttribute('data-ac'), mark:i.value});
+  });
+  busy(true,t('saving'));
+  api('teacher.saveMarks',{subject_code:S.sheet.subject.code, marks:marks}).then(function(d){
+    busy(false); msg('mkOk', d.message,'ok'); renderStats();
+  }).catch(function(e){ busy(false); msg('mkErr', e.message,'err'); });
+};
+$('mkSend').onclick=function(){
+  if(!confirm(t('confirm'))) return;
+  busy(true,t('sending'));
+  api('teacher.sendScores',{subject_code:S.sheet.subject.code}).then(function(d){
+    busy(false); msg('mkOk', d.message,'ok');
+  }).catch(function(e){ busy(false); msg('mkErr', e.message,'err'); });
+};
+
+/* ---------------- activities ---------------- */
+function renderActs(){
+  var d=S.sheet; if(!d) return;
+  var sum=d.activities.reduce(function(a,x){return a+n(x.max_mark);},0);
+  var col = sum===n(d.subject.teacher_total) ? 'var(--ok)' : 'var(--warn)';
+  $('actBudget').innerHTML = t('total')+': <b style="color:'+col+'">'+sum+'</b> / '+d.subject.teacher_total;
+  $('actList').innerHTML = d.activities.map(function(a){
+    return '<div class="item"><div class="tx"><b>'+esc(actName(a))+'</b>'+
+      '<span>'+t('maxMark')+' '+a.max_mark+' · '+esc(a.date||'')+' '+
+      '<span class="badge '+(a.published?'pub':'draft')+'">'+(a.published?t('published'):t('draft'))+'</span></span></div>'+
+      '<button class="btn sm soft" data-ed="'+esc(a.activity_id)+'">'+t('edit')+'</button></div>';
+  }).join('') || '<p class="muted center">'+t('noData')+'</p>';
+  qa('#actList [data-ed]').forEach(function(b){
+    b.onclick=function(){
+      actForm(d.activities.filter(function(x){return x.activity_id===b.getAttribute('data-ed');})[0]);
+    };
+  });
+  $('actAdd').classList.toggle('hide', !!d.readonly);
+}
+$('actAdd').onclick=function(){ actForm(null); };
+function actForm(a){
+  a = a || {activity_id:'', name_en:'', name_ku:'', max_mark:10, date:'', published:false};
+  openSheet(a.activity_id? t('edit') : t('addActivity'),
+    '<label class="f">'+t('activity')+' (کوردی)</label><input id="f_ku" value="'+esc(a.name_ku)+'">'+
+    '<label class="f">'+t('activity')+' (English)</label><input id="f_en" value="'+esc(a.name_en)+'">'+
+    '<label class="f">'+t('maxMark')+'</label><input id="f_max" type="number" min="0" value="'+n(a.max_mark)+'">'+
+    '<label class="f">Date</label><input id="f_date" type="date" value="'+esc(a.date)+'">'+
+    '<label class="pick '+(a.published?'on':'')+'" id="f_pub"><div class="box">✓</div>'+
+      '<div class="nm"><b>'+t('published')+'</b><span>'+t('sendToStudents')+'</span></div></label>'+
+    '<button class="btn" id="f_save">'+t('save')+'</button>'+
+    (a.activity_id?'<button class="btn danger" id="f_del">'+t('delete')+'</button>':''),
+  function(){
+    $('f_pub').onclick=function(){ $('f_pub').classList.toggle('on'); };
+    $('f_save').onclick=function(){
+      busy(true,t('saving'));
+      api('teacher.activity',{subject_code:S.sheet.subject.code, activity:{
+        activity_id:a.activity_id, name_ku:$('f_ku').value.trim(), name_en:$('f_en').value.trim(),
+        max_mark:$('f_max').value, date:$('f_date').value,
+        published:$('f_pub').classList.contains('on')
+      }}).then(function(){ closeSheet(); openSubject(S.sheet.subject.code); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    };
+    if($('f_del')) $('f_del').onclick=function(){
+      if(!confirm(t('confirm'))) return;
+      busy(true);
+      api('teacher.activityDelete',{subject_code:S.sheet.subject.code, activity_id:a.activity_id})
+        .then(function(){ closeSheet(); openSubject(S.sheet.subject.code); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    };
+  });
+}
+
+/* ---------------- stats ---------------- */
+function renderStats(){
+  var d=S.sheet; if(!d) return;
+  var totals=d.students.map(function(s){ return studentTotal(s.email); });
+  var graded=d.students.filter(function(s){
+    return d.activities.some(function(a){
+      var v=d.grades[s.email+'|'+a.activity_id]; return v!==''&&v!==undefined&&v!==null; });
+  }).length;
+  var avg = totals.length ? Math.round(totals.reduce(function(a,b){return a+b;},0)/totals.length*10)/10 : 0;
+  var pass = totals.filter(function(v){ return v>=n(d.subject.pass_mark); }).length;
+  $('sjStats').innerHTML =
+    stat(d.students.length, t('students'))+stat(graded, t('graded'))+stat(avg, t('average'))+
+    stat(totals.length?Math.max.apply(null,totals):0, t('highest'))+
+    stat(totals.length?Math.min.apply(null,totals):0, t('lowest'))+
+    stat(pass+' / '+d.students.length, t('passed'));
+  var tt=n(d.subject.teacher_total)||1, buckets=[0,0,0,0,0];
+  totals.forEach(function(v){ var p=v/tt*100; buckets[p>=90?4:p>=75?3:p>=60?2:p>=50?1:0]++; });
+  var labels=['<50%','50-59%','60-74%','75-89%','90-100%'], mx=Math.max.apply(null,buckets)||1;
+  $('sjDist').innerHTML = buckets.map(function(b,i){
+    return '<div style="display:flex;align-items:center;gap:8px;margin-top:7px">'+
+      '<span class="muted" style="width:62px">'+labels[i]+'</span>'+
+      '<div style="flex:1;background:var(--bg);border-radius:8px;height:18px;overflow:hidden">'+
+      '<div style="width:'+(b/mx*100)+'%;height:100%;background:var(--brand)"></div></div>'+
+      '<b style="width:26px;text-align:center">'+b+'</b></div>';
+  }).join('');
+}
+
+/* ---------------- export ---------------- */
+function sheetTableHtml(){
+  var d=S.sheet;
+  var head='<tr><th>#</th><th>'+t('name')+'</th><th>'+t('email')+'</th>'+
+    d.activities.map(function(a){ return '<th>'+esc(actName(a))+' /'+a.max_mark+'</th>';}).join('')+
+    '<th>'+t('total')+' /'+d.subject.teacher_total+'</th><th>'+t('pass')+'</th></tr>';
+  var list=d.students.slice();
+  if(S.sortDesc) list.sort(function(a,b){ return studentTotal(b.email)-studentTotal(a.email); });
+  var rows=list.map(function(st,i){
+    var tot=studentTotal(st.email);
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(st.name)+'</td><td>'+esc(st.email)+'</td>'+
+      d.activities.map(function(a){ var v=d.grades[st.email+'|'+a.activity_id];
+        return '<td>'+(v===''||v===undefined||v===null?'':v)+'</td>'; }).join('')+
+      '<td><b>'+tot+'</b></td><td>'+(tot>=n(d.subject.pass_mark)?t('pass'):t('fail'))+'</td></tr>';
+  }).join('');
+  return '<h2>'+esc(subjName(d.subject))+' — '+esc(d.subject.code)+'</h2>'+
+    '<p>'+t('stage')+': '+esc(d.subject.stage)+' · '+t('teacherTotal')+': '+d.subject.teacher_total+
+    ' · '+t('passMark')+': '+d.subject.pass_mark+'</p><table>'+head+rows+'</table>';
+}
+$('mkExcel').onclick=function(){ download(S.sheet.subject.code+'.xls','application/vnd.ms-excel', sheetTableHtml()); };
+$('mkWord').onclick =function(){ download(S.sheet.subject.code+'.doc','application/msword', sheetTableHtml()); };
+
+/* ---------------- head of department ---------------- */
+$('goHead').onclick=function(){
+  busy(true);
+  api('head.overview').then(function(d){ busy(false); S.head=d; show('v-head'); renderHead(); })
+    .catch(function(e){ busy(false); alert(e.message); });
+};
+function renderHead(){
+  var d=S.head; if(!d) return;
+  var subs=d.subjects;
+  $('hdStats').innerHTML = stat(subs.length, t('subjects'))+stat(d.students, t('students'))+
+    stat(d.teachers, t('accounts'))+stat(subs.filter(function(s){return s.published>0;}).length, t('published'));
+  var missing = subs.filter(function(s){ return s.published===0 || s.graded===0; });
+  $('hdMissing').innerHTML = missing.map(function(s){
+    return '<div class="item"><div class="tx"><b>'+esc(subjName(s))+'</b>'+
+      '<span>'+esc(s.teacher_name||s.teacher_email)+' · '+
+      (s.activities===0?t('addActivity'):(s.published===0?t('draft'):t('noData')))+'</span></div>'+
+      '<button class="btn sm soft" data-open="'+esc(s.code)+'">›</button></div>';
+  }).join('') || '<p class="muted center">✓</p>';
+  qa('#hdMissing [data-open]').forEach(function(b){
+    b.onclick=function(){ openSubject(b.getAttribute('data-open')); };
+  });
+  $('hdTable').innerHTML = '<table>'+headTableHtml()+'</table>';
+}
+function headTableHtml(){
+  var d=S.head;
+  var head='<tr><th class="name">'+t('subjects')+'</th><th>'+t('teacher')+'</th><th>'+t('stage')+'</th>'+
+    '<th>'+t('students')+'</th><th>'+t('graded')+'</th><th>'+t('teacherTotal')+'</th><th>'+t('average')+'</th>'+
+    '<th>'+t('highest')+'</th><th>'+t('lowest')+'</th><th>'+t('passed')+'</th></tr>';
+  return head+d.subjects.map(function(s){
+    return '<tr><td class="name">'+esc(subjName(s))+'</td><td>'+esc(s.teacher_name||s.teacher_email)+'</td>'+
+      '<td>'+esc(s.stage)+'</td><td>'+s.students+'</td><td>'+s.graded+'</td><td>'+s.teacher_total+'</td>'+
+      '<td>'+s.average+'</td><td>'+s.highest+'</td><td>'+s.lowest+'</td><td>'+s.passed+'</td></tr>';
+  }).join('');
+}
+$('hdExcel').onclick=function(){ download('department-report.xls','application/vnd.ms-excel',
+  '<h2>'+t('deptReport')+'</h2><table>'+headTableHtml()+'</table>'); };
+$('hdWord').onclick=function(){ download('department-report.doc','application/msword',
+  '<h2>'+t('deptReport')+'</h2><table>'+headTableHtml()+'</table>'); };
+$('hdFull').onclick=function(){
+  busy(true);
+  api('head.allMarks').then(function(d){
+    busy(false);
+    var html = d.data.map(function(b){
+      var hd='<tr><th>#</th><th>'+t('name')+'</th><th>'+t('email')+'</th>'+
+        b.activities.map(function(a){ return '<th>'+esc(actName(a))+' /'+a.max_mark+'</th>';}).join('')+
+        '<th>'+t('total')+'</th></tr>';
+      var rows=b.students.map(function(st,i){
+        var tot=0;
+        var cells=b.activities.map(function(a){
+          var v=b.grades[st.email+'|'+a.activity_id];
+          if(v!==undefined&&v!=='') tot+=n(v);
+          return '<td>'+(v===undefined?'':v)+'</td>';
+        }).join('');
+        return '<tr><td>'+(i+1)+'</td><td>'+esc(st.name)+'</td><td>'+esc(st.email)+'</td>'+cells+
+          '<td><b>'+tot+'</b></td></tr>';
+      }).join('');
+      return '<h2>'+esc(subjName(b.subject))+' — '+esc(b.subject.code)+'</h2><table>'+hd+rows+'</table><br>';
+    }).join('');
+    download('all-marks.xls','application/vnd.ms-excel', html);
+  }).catch(function(e){ busy(false); alert(e.message); });
+};
+
+/* ---------------- admin ---------------- */
+$('goAdmin').onclick=function(){ loadAdmin(); };
+function loadAdmin(){
+  busy(true);
+  api('admin.data').then(function(d){ busy(false); S.admin=d; show('v-admin'); renderAdmin(); })
+    .catch(function(e){ busy(false); alert(e.message); });
+}
+qa('.tabs [data-atab]').forEach(function(b){
+  b.onclick=function(){
+    qa('.tabs [data-atab]').forEach(function(x){ x.classList.toggle('on', x===b); });
+    ['students','subjects','teachers','config'].forEach(function(x){
+      $('atab-'+x).classList.toggle('hide', x!==b.getAttribute('data-atab'));
+    });
+  };
+});
+function renderAdmin(){
+  var d=S.admin;
+  $('stuCount').textContent=d.students.length;
+  renderStuTable('');
+  $('stuSearch').oninput=function(){ renderStuTable(this.value.toLowerCase()); };
+
+  $('subAdmList').innerHTML = d.subjects.map(function(s){
+    return '<div class="item"><div class="tx"><b>'+esc(subjName(s))+'</b><span>'+esc(s.code)+' · '+
+      t('stage')+' '+esc(s.stage)+' · '+t('teacherTotal')+' '+s.teacher_total+' · '+esc(s.teacher_email)+
+      '</span></div><button class="btn sm soft" data-sub="'+esc(s.code)+'">'+t('edit')+'</button></div>';
+  }).join('') || '<p class="muted center">'+t('noData')+'</p>';
+  qa('#subAdmList [data-sub]').forEach(function(b){
+    b.onclick=function(){ subjForm(d.subjects.filter(function(x){return x.code===b.getAttribute('data-sub');})[0]); };
+  });
+
+  $('teaList').innerHTML = d.teachers.map(function(x){
+    return '<div class="item"><div class="tx"><b>'+esc(x.full_name)+'</b><span>'+esc(x.email)+' · '+
+      roleLabel(x.role)+' · '+esc(x.last_login||'—')+'</span></div>'+
+      '<button class="btn sm soft" data-tea="'+esc(x.email)+'">'+t('edit')+'</button></div>';
+  }).join('');
+  qa('#teaList [data-tea]').forEach(function(b){
+    b.onclick=function(){ teaForm(d.teachers.filter(function(x){return x.email===b.getAttribute('data-tea');})[0]); };
+  });
+
+  $('cfgList').innerHTML = d.config.map(function(c){
+    return '<label class="f">'+esc(c.key)+' <span style="font-weight:400">— '+esc(c.note)+'</span></label>'+
+      '<input data-cfg="'+esc(c.key)+'" value="'+esc(c.value)+'">';
+  }).join('');
+}
+function renderStuTable(filter){
+  var list=S.admin.students.filter(function(s){
+    return !filter || (s.full_name+' '+s.email+' '+s.student_id).toLowerCase().indexOf(filter)>-1;
+  }).slice(0,300);
+  $('stuTable').innerHTML='<table><tr><th class="name">'+t('name')+'</th><th>'+t('email')+'</th><th>'+
+    t('stage')+'</th><th>'+t('group')+'</th></tr>'+
+    list.map(function(s){ return '<tr><td class="name">'+esc(s.full_name)+'</td><td>'+esc(s.email)+
+      '</td><td>'+esc(s.stage)+'</td><td>'+esc(s.group)+'</td></tr>'; }).join('')+'</table>';
+}
+$('impGo').onclick=function(){
+  var lines=$('impBox').value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  var students=lines.map(function(l){
+    var p=l.split(/[,\t;]/).map(function(x){return x.trim();});
+    return {student_id:p[0]||'', full_name:p[1]||'', email:p[2]||'', stage:p[3]||'', group:p[4]||''};
+  }).filter(function(s){ return s.email; });
+  if(!students.length){ msg('impErr','—','err'); return; }
+  busy(true,t('saving'));
+  api('admin.saveStudents',{students:students}).then(function(d){
+    busy(false); msg('impOk', d.message,'ok'); $('impBox').value=''; loadAdmin();
+  }).catch(function(e){ busy(false); msg('impErr', e.message,'err'); });
+};
+$('subAdd').onclick=function(){ subjForm(null); };
+function subjForm(s){
+  s = s || {code:'',name_en:'',name_ku:'',stage:'',semester:'',teacher_email:'',teacher_total:50,pass_mark:'',active:'YES'};
+  var isNew = !s.code;
+  openSheet(isNew? t('addSubject') : t('edit'),
+    '<label class="f">'+t('subjectCode')+'</label><input id="s_code" value="'+esc(s.code)+'"'+(isNew?'':' disabled')+'>'+
+    '<label class="f">'+t('name')+' (کوردی)</label><input id="s_ku" value="'+esc(s.name_ku)+'">'+
+    '<label class="f">'+t('name')+' (English)</label><input id="s_en" value="'+esc(s.name_en)+'">'+
+    '<label class="f">'+t('stage')+'</label><input id="s_stage" value="'+esc(s.stage)+'">'+
+    '<label class="f">'+t('semester')+'</label><input id="s_sem" value="'+esc(s.semester)+'">'+
+    '<label class="f">'+t('teacher')+' ('+t('email')+')</label><input id="s_tea" value="'+esc(s.teacher_email)+'">'+
+    '<label class="f">'+t('teacherTotal')+'</label><input id="s_tot" type="number" value="'+n(s.teacher_total)+'">'+
+    '<label class="f">'+t('passMark')+'</label><input id="s_pass" type="number" value="'+esc(s.pass_mark)+'">'+
+    '<button class="btn" id="s_save">'+t('save')+'</button>'+
+    (isNew?'':'<button class="btn danger" id="s_del">'+t('delete')+'</button>'),
+  function(){
+    $('s_save').onclick=function(){
+      busy(true,t('saving'));
+      api('admin.saveSubject',{subject:{
+        code:$('s_code').value.trim(), name_ku:$('s_ku').value.trim(), name_en:$('s_en').value.trim(),
+        stage:$('s_stage').value.trim(), semester:$('s_sem').value.trim(),
+        teacher_email:$('s_tea').value.trim(), teacher_total:$('s_tot').value, pass_mark:$('s_pass').value,
+        active:'YES'
+      }}).then(function(){ closeSheet(); loadAdmin(); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    };
+    if($('s_del')) $('s_del').onclick=function(){
+      if(!confirm(t('confirm'))) return;
+      busy(true);
+      api('admin.deleteSubject',{code:s.code}).then(function(){ closeSheet(); loadAdmin(); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    };
+  });
+}
+$('teaAdd').onclick=function(){ teaForm(null); };
+function teaForm(x){
+  var isNew=!x; x = x || {full_name:'',email:'',role:'teacher',active:'YES'};
+  openSheet(isNew? t('addAccount') : t('edit'),
+    '<label class="f">'+t('name')+'</label><input id="t_name" value="'+esc(x.full_name)+'">'+
+    '<label class="f">'+t('email')+'</label><input id="t_email" value="'+esc(x.email)+'"'+(isNew?'':' disabled')+'>'+
+    '<label class="f">'+t('role')+'</label><select id="t_role">'+
+      ['teacher','head','admin'].map(function(r){
+        return '<option value="'+r+'"'+(x.role===r?' selected':'')+'>'+roleLabel(r)+'</option>'; }).join('')+
+    '</select>'+
+    '<label class="f">'+t('active')+'</label><select id="t_active">'+
+      ['YES','NO'].map(function(v){ return '<option'+(String(x.active)===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select>'+
+    '<button class="btn" id="t_save">'+t('save')+'</button>'+
+    (isNew?'':'<button class="btn ghost" id="t_reset">'+t('resetCode')+'</button>'+
+             '<button class="btn danger" id="t_del">'+t('delete')+'</button>'),
+  function(){
+    function send(reset){
+      busy(true,t('saving'));
+      api('admin.saveTeacher',{teacher:{
+        full_name:$('t_name').value.trim(), email:$('t_email').value.trim(),
+        role:$('t_role').value, active:$('t_active').value, reset_code:!!reset
+      }}).then(function(d){ closeSheet(); busy(false); alert(d.message); loadAdmin(); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    }
+    $('t_save').onclick=function(){ send(false); };
+    if($('t_reset')) $('t_reset').onclick=function(){ send(true); };
+    if($('t_del')) $('t_del').onclick=function(){
+      if(!confirm(t('confirm'))) return;
+      busy(true);
+      api('admin.deleteTeacher',{email:x.email}).then(function(){ closeSheet(); loadAdmin(); })
+        .catch(function(e){ busy(false); alert(e.message); });
+    };
+  });
+}
+$('cfgSave').onclick=function(){
+  var cfg=qa('#cfgList [data-cfg]').map(function(i){ return {key:i.getAttribute('data-cfg'), value:i.value}; });
+  busy(true,t('saving'));
+  api('admin.saveConfig',{config:cfg}).then(function(d){ busy(false); msg('cfgOk', d.message,'ok'); })
+    .catch(function(e){ busy(false); alert(e.message); });
+};
+
+/* ---------------- logs ---------------- */
+$('goLogs').onclick=function(){
+  busy(true);
+  api('admin.logs').then(function(d){ busy(false); S.logs=d; show('v-logs'); renderLogs('audit'); })
+    .catch(function(e){ busy(false); alert(e.message); });
+};
+qa('.tabs [data-ltab]').forEach(function(b){
+  b.onclick=function(){
+    qa('.tabs [data-ltab]').forEach(function(x){ x.classList.toggle('on', x===b); });
+    renderLogs(b.getAttribute('data-ltab'));
+  };
+});
+function renderLogs(kind){
+  var rows = kind==='audit' ? S.logs.audit : S.logs.emails;
+  var head = kind==='audit'
+    ? '<tr><th>Time</th><th>Who</th><th>Action</th><th>Details</th></tr>'
+    : '<tr><th>Time</th><th>To</th><th>Type</th><th>Subject</th><th>Status</th></tr>';
+  var body = rows.map(function(r){
+    return kind==='audit'
+      ? '<tr><td>'+esc(r.timestamp)+'</td><td>'+esc(r.actor)+'</td><td>'+esc(r.action)+'</td><td>'+esc(r.details)+'</td></tr>'
+      : '<tr><td>'+esc(r.timestamp)+'</td><td>'+esc(r.to)+'</td><td>'+esc(r.type)+'</td><td>'+
+        esc(r.subject_codes)+'</td><td>'+esc(r.status)+'</td></tr>';
+  }).join('');
+  $('logTable').innerHTML='<table>'+head+body+'</table>';
+}
+
+registerSW();
+boot();
+</script>
+</body>
+</html>
